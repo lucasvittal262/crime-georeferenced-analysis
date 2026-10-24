@@ -12,19 +12,13 @@ from pyspark.sql.types import (
     DoubleType,
 )
 from tqdm import tqdm
-
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s | %(levelname)-8s | %(message)s",
-    datefmt="%H:%M:%S",
-)
-logger = logging.getLogger("cnefe_integration")
+from lvdevtools.logs.local_logs import log
 
 
 def list_folders(raw_data_dir: str) -> list:
-    logger.info(f"Scanning raw data directory: {raw_data_dir}")
+    log("info",f"Scanning raw data directory: {raw_data_dir}")
     folders = [f"{raw_data_dir}/{folder}" for folder in os.listdir(raw_data_dir)]
-    logger.info(f"Found {len(folders)} folders to process")
+    log("info",f"Found {len(folders)} folders to process")
     return folders
 
 
@@ -37,30 +31,30 @@ def integrate_municipality_data(raw_data_dir: str, schema: StructType) -> DataFr
     pbar = tqdm(folders, desc="Loading municipality data", unit="folder")
     for folder_path in pbar:
         folder_name = os.path.basename(folder_path)
-        logger.info(f"Getting rows for folder '{folder_name}'...")
+        log("info",f"Getting rows for folder '{folder_name}'...")
         state_label = folder_name.split("_")[1]
         pbar.set_postfix_str(f"UF={state_label}")
 
-        logger.info(f"Reading CSV files from '{folder_path}' (UF={state_label})")
+        log("info",f"Reading CSV files from '{folder_path}' (UF={state_label})")
         df_folder = spark.read.csv(folder_path, header=True, schema=schema, sep=";")
         df_folder = df_folder.withColumn("UF", lit(state_label))
 
         rows = df_folder.count()
-        logger.info(f"Got {rows:,} rows for Federation Unit '{state_label}'")
+        log("info",f"Got {rows:,} rows for Federation Unit '{state_label}'")
 
         dfs.append(df_folder)
 
-    logger.info("Unioning all municipality DataFrames together...")
+    log("info","Unioning all municipality DataFrames together...")
     # unionByName is safer than union() if column order ever differs between files
     integrated_df = dfs[0]
     for df in tqdm(dfs[1:], desc="Merging DataFrames", unit="df"):
         integrated_df = integrated_df.unionByName(df)
 
-    logger.info("Integration complete. Final schema:")
+    log("info","Integration complete. Final schema:")
     integrated_df.printSchema()
 
     total_rows = integrated_df.count()
-    logger.info(f"Total rows in the integrated DataFrame: {total_rows:,}")
+    log("info",f"Total rows in the integrated DataFrame: {total_rows:,}")
 
     return integrated_df
 
@@ -69,9 +63,9 @@ def save_integrated_data(integrated_df: DataFrame, output_file_path: str) -> Non
     output_dir = os.path.dirname(output_file_path)
     os.makedirs(output_dir, exist_ok=True)
     output_file_path_str = str(output_file_path)
-    logger.info(f"Writing integrated data to '{output_file_path_str}' (mode=overwrite)...")
+    log("info",f"Writing integrated data to '{output_file_path_str}' (mode=overwrite)...")
     integrated_df.write.mode("overwrite").parquet(output_file_path_str)
-    logger.info(f"✅ Integrated data saved to {output_file_path_str}")
+    log("info",f"✅ Integrated data saved to {output_file_path_str}")
 
 
 if __name__ == "__main__":
@@ -129,11 +123,11 @@ if __name__ == "__main__":
         ]
     )
 
-    logger.info("=== Starting CNEFE data integration pipeline ===")
+    log("info","=== Starting CNEFE data integration pipeline ===")
     integrated_df = integrate_municipality_data(RAW_DATA_DIR, CNEFE_SCHEMA)
     save_integrated_data(integrated_df, OUTPUT_FILE_PATH)
-    logger.info("=== Pipeline finished, stopping Spark session ===")
+    log("info","=== Pipeline finished, stopping Spark session ===")
     spark.stop()
     end_time = time.time()
     elapsed_time = end_time - start_time
-    logger.info(f"Total elapsed time: {elapsed_time:.2f} seconds")
+    log("info",f"Total elapsed time: {elapsed_time:.2f} seconds")

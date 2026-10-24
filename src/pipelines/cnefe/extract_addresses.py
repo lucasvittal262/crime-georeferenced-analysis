@@ -7,20 +7,12 @@ from typing import Dict, List
 import requests
 import urllib.request
 from bs4 import BeautifulSoup
+from lvdevtools.logs.local_logs import log
 from tqdm import tqdm
-
-
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s - [%(levelname)s]: %(message)s",
-    datefmt="%H:%M:%S",
-)
-logger = logging.getLogger(__name__)
-
 
 def get_states_folders(year_census: int, base_url: str) -> List[str]:
     census_url = base_url.format(year=year_census)
-    logger.info(f"Fetching state folder listing for {year_census} from {census_url}")
+    log("info",f"Fetching state folder listing for {year_census} from {census_url}")
 
     page_html = requests.get(census_url).text
     soup = BeautifulSoup(page_html, "html.parser")
@@ -34,7 +26,7 @@ def get_states_folders(year_census: int, base_url: str) -> List[str]:
     pattern = re.compile(r"^\d{2}_[A-Z]{2}$")
     uf_folders = [f for f in folders if pattern.match(f)]
 
-    logger.info(f"Found {len(uf_folders)} state folders: {uf_folders}")
+    log("info",f"Found {len(uf_folders)} state folders: {uf_folders}")
     return uf_folders
 
 
@@ -43,7 +35,7 @@ def get_municipalities_files_urls(
 ) -> List[str]:
     census_url = base_url.format(year=year_census)
     state_url = f"{census_url}/{state_folder}/"
-    logger.info(f"[{state_folder}] Fetching municipality file list from {state_url}")
+    log("info",f"[{state_folder}] Fetching municipality file list from {state_url}")
 
     page_html = requests.get(state_url).text
     soup = BeautifulSoup(page_html, "html.parser")
@@ -54,15 +46,15 @@ def get_municipalities_files_urls(
         if a["href"].endswith(".zip") and a.get_text(strip=True) != "Parent Directory"
     ]
 
-    logger.info(f"[{state_folder}] Found {len(files)} zip file(s)")
+    log("info",f"[{state_folder}] Found {len(files)} zip file(s)")
     return files
 
 
 def unzip_file(zip_file_path: str, extract_to: str) -> None:
-    logger.info(f"Extracting {os.path.basename(zip_file_path)} -> {extract_to}")
+    log("info",f"Extracting {os.path.basename(zip_file_path)} -> {extract_to}")
     with zipfile.ZipFile(zip_file_path, "r") as zip_ref:
         zip_ref.extractall(extract_to)
-    logger.info(f"Finished extracting {os.path.basename(zip_file_path)}")
+    log("info",f"Finished extracting {os.path.basename(zip_file_path)}")
 
 
 def download_municipality_state_files(
@@ -74,14 +66,14 @@ def download_municipality_state_files(
     file_name = os.path.basename(municipality_file)
     file_path = f"{state_dir}/{file_name}"
 
-    logger.info(f"[{state_folder}] Downloading {file_name} from {municipality_file}")
+    log("info",f"[{state_folder}] Downloading {file_name} from {municipality_file}")
     urllib.request.urlretrieve(municipality_file, file_path)
-    logger.info(f"[{state_folder}] Download complete: {file_name}")
+    log("info",f"[{state_folder}] Download complete: {file_name}")
 
     unzip_file(file_path, state_dir)
 
     os.remove(file_path)
-    # logger.info(f"[{state_folder}] Removed zip file after extraction: {file_name}")
+    # log("info",f"[{state_folder}] Removed zip file after extraction: {file_name}")
 
     return file_path
 
@@ -89,7 +81,7 @@ def download_municipality_state_files(
 def download_all_municipality_state_files(
     state_folders: List[str], raw_data_dir: str
 ) -> None:
-    logger.info(
+    log("info",
         f"Starting download for {len(state_folders)} state(s) into '{raw_data_dir}'"
     )
 
@@ -107,7 +99,7 @@ def download_all_municipality_state_files(
                 state_folder, municipality_file, raw_data_dir
             )
 
-    logger.info("All states processed successfully.")
+    log("info","All states processed successfully.")
 
 
 if __name__ == "__main__":

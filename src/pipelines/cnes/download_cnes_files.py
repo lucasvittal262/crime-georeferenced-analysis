@@ -6,18 +6,10 @@ from time import time
 from typing import List, Tuple
 
 from dateutil.relativedelta import relativedelta
+from lvdevtools.logs.local_logs import log
 from tqdm import tqdm
 import zipfile
 
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s | %(levelname)-8s | %(name)s | %(message)s",
-    handlers=[
-        logging.StreamHandler(),
-        logging.FileHandler("cnes_download.log", encoding="utf-8"),
-    ],
-)
-logger = logging.getLogger("download_cnes_files.py")
 
 
 class TqdmUpTo(tqdm):
@@ -29,7 +21,7 @@ class TqdmUpTo(tqdm):
 
 def generate_year_months(start_date, end_date) -> List[str]:
     """Generate a list of 'YYYYMM' strings between start_date and end_date (inclusive)."""
-    logger.info("Generating year-month range from %s to %s", start_date, end_date)
+    log("info","Generating year-month range from %s to %s", start_date, end_date)
 
     if isinstance(start_date, str):
         start_date = date.fromisoformat(start_date)
@@ -44,7 +36,7 @@ def generate_year_months(start_date, end_date) -> List[str]:
         year_months.append(current.strftime("%Y%m"))
         current += relativedelta(months=1)
 
-    logger.info("Generated %d year-month periods", len(year_months))
+    log("info","Generated %d year-month periods", len(year_months))
     logger.debug("Year-months: %s", year_months)
     return year_months
 
@@ -53,7 +45,7 @@ def get_not_downloaded_year_months(
     year_months: List[str], output_dir: str
 ) -> List[str]:
     """Return a list of year_months that have not yet been downloaded to output_dir."""
-    logger.info("Checking for already downloaded files in %s", output_dir)
+    log("info","Checking for already downloaded files in %s", output_dir)
 
     not_downloaded = []
     for year_month in year_months:
@@ -61,7 +53,7 @@ def get_not_downloaded_year_months(
         if not os.path.isdir(expected_file):
             not_downloaded.append(year_month)
 
-    logger.info(
+    log("info",
         "%d out of %d files need to be downloaded",
         len(not_downloaded),
         len(year_months),
@@ -74,7 +66,7 @@ def download_cnes_file(year_month: str, output_dir: str) -> None:
     url = f"https://cnes.datasus.gov.br/EstatisticasServlet?path=BASE_DE_DADOS_CNES_{year_month}.ZIP"
     output_file = f"{output_dir}/BASE_DE_DADOS_CNES_{year_month}.ZIP"
 
-    logger.info("Starting download for %s -> %s", year_month, output_file)
+    log("info","Starting download for %s -> %s", year_month, output_file)
 
     try:
         os.makedirs(os.path.dirname(output_file), exist_ok=True)
@@ -88,16 +80,16 @@ def download_cnes_file(year_month: str, output_dir: str) -> None:
         ) as t:
             urllib.request.urlretrieve(url, output_file, reporthook=t.update_to)
 
-        logger.info("Successfully downloaded %s", year_month)
+        log("info","Successfully downloaded %s", year_month)
 
     except Exception as err:
-        logger.error("Failed to download %s: %s", year_month, err, exc_info=True)
+        log("error","Failed to download %s: %s", year_month, err, exc_info=True)
         raise err
 
 
 def download_cnes_files(year_months: List[str], output_dir: str) -> Tuple[int, int]:
     """Download multiple CNES files, tracking successes and failures."""
-    logger.info("Starting batch download of %d files", len(year_months))
+    log("info","Starting batch download of %d files", len(year_months))
 
     count_success = 0
     count_failures = 0
@@ -107,10 +99,10 @@ def download_cnes_files(year_months: List[str], output_dir: str) -> Tuple[int, i
             download_cnes_file(year_month, output_dir)
             count_success += 1
         except Exception as err:
-            logger.error("Error occurred while downloading %s: %s", year_month, err)
+            log("error","Error occurred while downloading %s: %s", year_month, err)
             count_failures += 1
 
-    logger.info(
+    log("info",
         "Batch download finished: %d succeeded, %d failed",
         count_success,
         count_failures,
@@ -120,10 +112,10 @@ def download_cnes_files(year_months: List[str], output_dir: str) -> Tuple[int, i
 
 def list_zip_files(input_folder: str) -> List[str]:
     """Return a sorted list of full paths to .zip files found in input_folder."""
-    logger.info("Listing zip files in %s", input_folder)
+    log("info","Listing zip files in %s", input_folder)
 
     if not os.path.isdir(input_folder):
-        logger.warning("Input folder does not exist: %s", input_folder)
+        log("warning","Input folder does not exist: %s", input_folder)
         return []
 
     zip_files = sorted(
@@ -132,14 +124,14 @@ def list_zip_files(input_folder: str) -> List[str]:
         if f.lower().endswith(".zip")
     )
 
-    logger.info("Found %d zip file(s) in %s", len(zip_files), input_folder)
+    log("info","Found %d zip file(s) in %s", len(zip_files), input_folder)
     logger.debug("Zip files: %s", zip_files)
     return zip_files
 
 
 def extract_zip_file(zip_path: str, output_folder: str) -> None:
     """Extract a single zip file into output_folder, showing a progress bar for its members."""
-    logger.info("Extracting %s -> %s", zip_path, output_folder)
+    log("info","Extracting %s -> %s", zip_path, output_folder)
 
     try:
         folder_name = os.path.splitext(os.path.basename(zip_path))[0].replace(
@@ -156,10 +148,10 @@ def extract_zip_file(zip_path: str, output_folder: str) -> None:
             ):
                 zip_ref.extract(member, os.path.join(output_folder, folder_name))
 
-        logger.info("Successfully extracted %s (%d files)", zip_path, len(members))
+        log("info","Successfully extracted %s (%d files)", zip_path, len(members))
 
     except Exception as err:
-        logger.error("Failed to extract %s: %s", zip_path, err, exc_info=True)
+        log("error","Failed to extract %s: %s", zip_path, err, exc_info=True)
         raise err
 
 
@@ -171,7 +163,7 @@ def extract_and_clean_zips(output_folder: str) -> Tuple[int, int]:
     Returns a tuple of (count_success, count_failures).
     """
     zip_files = list_zip_files(output_folder)
-    logger.info("Starting extraction of %d zip file(s)", len(zip_files))
+    log("info","Starting extraction of %d zip file(s)", len(zip_files))
 
     count_success = 0
     count_failures = 0
@@ -180,13 +172,13 @@ def extract_and_clean_zips(output_folder: str) -> Tuple[int, int]:
         try:
             extract_zip_file(zip_path, output_folder)
             os.remove(zip_path)
-            logger.info("Deleted zip file after extraction: %s", zip_path)
+            log("info","Deleted zip file after extraction: %s", zip_path)
             count_success += 1
         except Exception as err:
-            logger.error("Error occurred while processing %s: %s", zip_path, err)
+            log("error","Error occurred while processing %s: %s", zip_path, err)
             count_failures += 1
 
-    logger.info(
+    log("info",
         "Extraction finished: %d succeeded, %d failed",
         count_success,
         count_failures,
@@ -210,7 +202,7 @@ if __name__ == "__main__":
     END_DATE = date.today().strftime("%Y-%m-%d")
     BASE_URL = "https://cnes.datasus.gov.br/EstatisticasServlet?path=BASE_DE_DADOS_CNES_{year_month}.ZIP"
 
-    logger.info("Script started | START_DATE=%s | END_DATE=%s", START_DATE, END_DATE)
+    log("info","Script started | START_DATE=%s | END_DATE=%s", START_DATE, END_DATE)
 
     year_months = generate_year_months(START_DATE, END_DATE)
     not_downloaded_year_months = get_not_downloaded_year_months(year_months, OUTPUT_DIR)
@@ -221,9 +213,9 @@ if __name__ == "__main__":
 
     elapsed_time = time() - time_start
 
-    logger.info("Script finished in %.2f seconds", elapsed_time)
-    logger.info("Successful downloads: %d", success)
-    logger.info("Failed downloads: %d", failures)
+    log("info","Script finished in %.2f seconds", elapsed_time)
+    log("info","Successful downloads: %d", success)
+    log("info","Failed downloads: %d", failures)
 
     print(f"Successful downloads: {success}")
     print(f"Failed downloads: {failures}")

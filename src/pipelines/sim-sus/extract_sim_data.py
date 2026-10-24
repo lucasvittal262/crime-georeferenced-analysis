@@ -1,4 +1,5 @@
 from pyspark.sql import SparkSession, DataFrame
+from lvdevtools.logs.local_logs import log
 from datetime import datetime
 from pathlib import Path
 from time import time
@@ -20,8 +21,8 @@ def get_data_from_bq(
 ) -> DataFrame:
 
     full_table_name = f"{project_id}.{dataset}.{table}"
-    logger.info(f"📊 Starting data fetch from BigQuery table '{full_table_name}'...")
-    logger.info(f"🔎 Getting data for {year}")
+    log("info",f"📊 Starting data fetch from BigQuery table '{full_table_name}'...")
+    log("info",f"🔎 Getting data for {year}")
 
     query = f"""
         SELECT *
@@ -38,25 +39,25 @@ def get_data_from_bq(
             .load()
         )
         elapsed = time() - start_time
-        logger.info(
+        log("info",
             f"✅ Successfully loaded data from '{full_table_name}' in {elapsed:.2f}s"
         )
         return df
     except Exception as e:
-        logger.error(f"❌ Failed to load data from '{full_table_name}': {e}")
+        log("error",f"❌ Failed to load data from '{full_table_name}': {e}")
         raise
 
 
 def save_to_parquet(df: DataFrame, path: str):
-    logger.info(f"💾 Saving DataFrame to parquet at '{path}'...")
+    log("info",f"💾 Saving DataFrame to parquet at '{path}'...")
 
     start_time = time()
     try:
         df.write.mode("overwrite").parquet(path)
         elapsed = time() - start_time
-        logger.info(f"✅ Data successfully saved to '{path}' in {elapsed:.2f}s")
+        log("info",f"✅ Data successfully saved to '{path}' in {elapsed:.2f}s")
     except Exception as e:
-        logger.error(f"❌ Failed to save data to '{path}': {e}")
+        log("error",f"❌ Failed to save data to '{path}': {e}")
         raise
 
 
@@ -79,7 +80,7 @@ def extract_all_data(
     ano_min, ano_max = int(ano_min), int(ano_max)
     total = (ano_max - ano_min )
 
-    logger.info(
+    log("info",
         f"🚀 Starting extraction of '{table}' ({ano_min}-{ano_max}, {total} files to go)"
     )
 
@@ -90,7 +91,7 @@ def extract_all_data(
                 output_dir / f"extracted_data_{label}_{table}_{year}"
             )
 
-            logger.info(f"📥 ({count}/{total}) Fetching {year}...")
+            log("info",f"📥 ({count}/{total}) Fetching {year}...")
 
             try:
                 df = get_data_from_bq(
@@ -102,12 +103,12 @@ def extract_all_data(
                     year=year
                 )
                 save_to_parquet(df, str(output_path))
-                logger.info(f"✅ ({count}/{total}) Saved {output_path.name}")
+                log("info",f"✅ ({count}/{total}) Saved {output_path.name}")
             except Exception:
                 logger.exception(f"❌ ({count}/{total}) Failed on {year}")
                 raise
 
-    logger.info(f"🎉 Done! {count} files saved to {output_dir}")
+    log("info",f"🎉 Done! {count} files saved to {output_dir}")
 
 
 if __name__ == "__main__":

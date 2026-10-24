@@ -9,16 +9,7 @@ from dateutil.relativedelta import relativedelta
 from tqdm import tqdm
 from tools.list_ibge_ftp_files import list_files
 import zipfile
-
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s | %(levelname)-8s | %(name)s | %(message)s",
-    handlers=[
-        logging.StreamHandler(),
-        logging.FileHandler("cnes_download.log", encoding="utf-8"),
-    ],
-)
-logger = logging.getLogger("download_files.py")
+from lvdevtools.logs.local_logs import log
 
 
 class TqdmUpTo(tqdm):
@@ -34,7 +25,7 @@ def get_not_downloaded_ones(
     files: List[str], output_dir: str
 ) -> List[str]:
     """Return a list of year_months that have not yet been downloaded to output_dir."""
-    logger.info("Checking for already downloaded files in %s", output_dir)
+    log("info","Checking for already downloaded files in %s", output_dir)
 
     not_downloaded = []
     for file in files:
@@ -42,7 +33,7 @@ def get_not_downloaded_ones(
         if not os.path.isfile(expected_file):
             not_downloaded.append(file)
 
-    logger.info(
+    log("info",
         "%d out of %d files need to be downloaded",
         len(not_downloaded),
         len(files),
@@ -55,7 +46,7 @@ def download_file(file: str, output_dir: str, base_url: str) -> None:
     url = f"{base_url}{file}"
     output_file = f"{output_dir}/{file}"
 
-    logger.info("Starting download for %s -> %s", file, output_file)
+    log("info","Starting download for %s -> %s", file, output_file)
 
     try:
         os.makedirs(os.path.dirname(output_file), exist_ok=True)
@@ -69,16 +60,16 @@ def download_file(file: str, output_dir: str, base_url: str) -> None:
         ) as t:
             urllib.request.urlretrieve(url, output_file, reporthook=t.update_to)
 
-        logger.info("Successfully downloaded %s", file)
+        log("info","Successfully downloaded %s", file)
 
     except Exception as err:
-        logger.error("Failed to download %s: %s", file, err, exc_info=True)
+        log("error","Failed to download %s: %s", file, err, exc_info=True)
         raise err
 
 
 def download_files(files: List[str], output_dir: str, base_url: str) -> Tuple[int, int]:
     """Download multiple CNES files, tracking successes and failures."""
-    logger.info("Starting batch download of %d files", len(files))
+    log("info","Starting batch download of %d files", len(files))
 
     count_success = 0
     count_failures = 0
@@ -88,10 +79,10 @@ def download_files(files: List[str], output_dir: str, base_url: str) -> Tuple[in
             download_file(file, output_dir, base_url)
             count_success += 1
         except Exception as err:
-            logger.error("Error occurred while downloading %s: %s", file, err)
+            log("error","Error occurred while downloading %s: %s", file, err)
             count_failures += 1
 
-    logger.info(
+    log("info",
         "Batch download finished: %d succeeded, %d failed",
         count_success,
         count_failures,
@@ -101,10 +92,10 @@ def download_files(files: List[str], output_dir: str, base_url: str) -> Tuple[in
 
 def list_zip_files(input_folder: str) -> List[str]:
     """Return a sorted list of full paths to .zip files found in input_folder."""
-    logger.info("Listing zip files in %s", input_folder)
+    log("info","Listing zip files in %s", input_folder)
 
     if not os.path.isdir(input_folder):
-        logger.warning("Input folder does not exist: %s", input_folder)
+        log("warning","Input folder does not exist: %s", input_folder)
         return []
 
     zip_files = sorted(
@@ -113,14 +104,14 @@ def list_zip_files(input_folder: str) -> List[str]:
         if f.lower().endswith(".zip")
     )
 
-    logger.info("Found %d zip file(s) in %s", len(zip_files), input_folder)
+    log("info","Found %d zip file(s) in %s", len(zip_files), input_folder)
     logger.debug("Zip files: %s", zip_files)
     return zip_files
 
 
 def extract_zip_file(zip_path: str, output_folder: str) -> None:
     """Extract a single zip file into output_folder, showing a progress bar for its members."""
-    logger.info("Extracting %s -> %s", zip_path, output_folder)
+    log("info","Extracting %s -> %s", zip_path, output_folder)
 
     try:
         folder_name = os.path.splitext(os.path.basename(zip_path))[0].replace(
@@ -137,10 +128,10 @@ def extract_zip_file(zip_path: str, output_folder: str) -> None:
             ):
                 zip_ref.extract(member, os.path.join(output_folder, folder_name))
 
-        logger.info("Successfully extracted %s (%d files)", zip_path, len(members))
+        log("info","Successfully extracted %s (%d files)", zip_path, len(members))
 
     except Exception as err:
-        logger.error("Failed to extract %s: %s", zip_path, err, exc_info=True)
+        log("error","Failed to extract %s: %s", zip_path, err, exc_info=True)
         raise err
 
 
@@ -152,7 +143,7 @@ def extract_and_clean_zips(output_folder: str) -> Tuple[int, int]:
     Returns a tuple of (count_success, count_failures).
     """
     zip_files = list_zip_files(output_folder)
-    logger.info("Starting extraction of %d zip file(s)", len(zip_files))
+    log("info","Starting extraction of %d zip file(s)", len(zip_files))
 
     count_success = 0
     count_failures = 0
@@ -161,13 +152,13 @@ def extract_and_clean_zips(output_folder: str) -> Tuple[int, int]:
         try:
             extract_zip_file(zip_path, output_folder)
             os.remove(zip_path)
-            logger.info("Deleted zip file after extraction: %s", zip_path)
+            log("info","Deleted zip file after extraction: %s", zip_path)
             count_success += 1
         except Exception as err:
-            logger.error("Error occurred while processing %s: %s", zip_path, err)
+            log("error","Error occurred while processing %s: %s", zip_path, err)
             count_failures += 1
 
-    logger.info(
+    log("info",
         "Extraction finished: %d succeeded, %d failed",
         count_success,
         count_failures,
@@ -189,11 +180,11 @@ if __name__ == "__main__":
 
     BASE_URL = "https://ftp.ibge.gov.br/Censos/Censo_Demografico_2022/Agregados_por_Setores_Censitarios/Agregados_por_Municipio_csv/"
 
-    logger.info("Starting to list files from IBGE FTP server...")
+    log("info","Starting to list files from IBGE FTP server...")
 
     file_names = list_files(BASE_URL)
     print(f"Found {len(file_names)} files to download from IBGE FTP server")
-    logger.info("Found %d files to download from IBGE FTP server", len(file_names))
+    log("info","Found %d files to download from IBGE FTP server", len(file_names))
     not_downloaded_ones = get_not_downloaded_ones(file_names, OUTPUT_DIR)
     success, failures = download_files(
         not_downloaded_ones, output_dir=OUTPUT_DIR, base_url=BASE_URL
@@ -202,9 +193,9 @@ if __name__ == "__main__":
 
     elapsed_time = time() - time_start
 
-    logger.info("Script finished in %.2f seconds", elapsed_time)
-    logger.info("Successful downloads: %d", success)
-    logger.info("Failed downloads: %d", failures)
+    log("info","Script finished in %.2f seconds", elapsed_time)
+    log("info","Successful downloads: %d", success)
+    log("info","Failed downloads: %d", failures)
 
     print(f"Successful downloads: {success}")
     print(f"Failed downloads: {failures}")
