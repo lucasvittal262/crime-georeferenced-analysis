@@ -121,7 +121,7 @@ if __name__ == "__main__":
     USER_NAME = getpass.getuser()
     LABEL = "beneficios_concedidos"
     DATALAKE_PATH = Path(f"/media/{USER_NAME}/Seagate Portable Drive/Datalake")
-    OUTPUT_DIR = DATALAKE_PATH / "raw" / LABEL
+    OUTPUT_DIR = DATALAKE_PATH / "raw/mps" / LABEL
 
     ANO_MIN = "2012"
     ANO_MAX = "2026"
