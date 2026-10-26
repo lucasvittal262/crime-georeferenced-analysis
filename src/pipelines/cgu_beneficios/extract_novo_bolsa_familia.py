@@ -82,7 +82,7 @@ def extract_all_data(
     JAN = 1
     DEZ = 12
     ano_min, ano_max = int(ano_min), int(ano_max)
-    total = (ano_max - ano_min )*12
+    total = (ano_max - ano_min + 1)*12
     
     log("info",
         f"🚀 Starting extraction of '{table}' ({ano_min}-{ano_max}, {total} files to go)"
@@ -133,8 +133,8 @@ if __name__ == "__main__":
     DATALAKE_PATH = Path(f"/media/{USER_NAME}/Seagate Portable Drive/Datalake")
     
 
-    ANO_MIN = "2021"
-    ANO_MAX = "2023"
+    ANO_MIN = "2023"
+    ANO_MAX = "2026"
     PROJECT_ID = "basedosdados"
     DATASET_NAME = "br_cgu_beneficios_cidadao"
     TABLE = "novo_bolsa_familia"

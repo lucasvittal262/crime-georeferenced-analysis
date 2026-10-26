@@ -82,7 +82,7 @@ def extract_all_data(
     JAN = 1
     DEZ = 12
     ano_min, ano_max = int(ano_min), int(ano_max)
-    total = (ano_max - ano_min )*12
+    total = (ano_max - ano_min + 1)*12
     
     log("info",
         f"🚀 Starting extraction of '{table}' ({ano_min}-{ano_max}, {total} files to go)"
